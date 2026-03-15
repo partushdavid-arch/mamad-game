@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>גשר מילים</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', 'Arial Hebrew', Arial, sans-serif;
+    background: #0f0f1a;
+    color: #eee;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  h1 {
+    font-size: 2.2rem;
+    color: #f0c040;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 24px; text-align: center; }
+
+  #game-screen, #summary-screen { width: 100%; max-width: 560px; }
+
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    font-size: 0.95rem;
+    color: #aaa;
+  }
+  .score-val { color: #f0c040; font-size: 1.2rem; font-weight: bold; }
+
+  /* Puzzle */
+  .puzzle-box {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 16px;
+    padding: 32px 24px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .words-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .word-chip {
+    background: #2a2a4a;
+    border: 2px solid #444;
+    border-radius: 12px;
+    padding: 12px 22px;
+    font-size: 1.6rem;
+    font-weight: bold;
+    color: #d0d0ff;
+    min-width: 90px;
+    text-align: center;
+  }
+
+  .connector {
+    color: #555;
+    font-size: 1.4rem;
+    font-weight: bold;
+  }
+
+
+  /* Letter boxes row */
+  .letter-boxes {
+    display: flex;
+    flex-direction: row; /* in dir=rtl context, row flows right→left so DOM[0]=rightmost */
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .letter-boxes.shake { animation: shake 0.3s ease; }
+
+  .letter-box {
+    width: 46px;
+    height: 54px;
+    background: #111;
+    border: 2px dashed #555;
+    border-radius: 8px;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #eee;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .letter-box.filled   { border-style: solid; border-color: #8080cc; background: #1a1a3a; }
+  .letter-box.correct  { border-color: #40c070; color: #40c070; background: #002a10; border-style: solid; }
+  .letter-box.revealed { border-color: #f0c040; color: #f0c040; background: #2a2000; border-style: solid; }
+
+  /* Letter buttons grid */
+  .letter-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 12px;
+    direction: rtl;
+  }
+
+  .letter-btn {
+    background: #2a2a4a;
+    border: 2px solid #555;
+    border-radius: 10px;
+    width: 46px;
+    height: 46px;
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #d0d0ff;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.15s, opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: inherit;
+  }
+  .letter-btn:hover { background: #3a3a6a; transform: translateY(-2px); }
+  .letter-btn:active { transform: translateY(0); }
+  .letter-btn:disabled { opacity: 0.25; cursor: default; transform: none; }
+
+  /* Action buttons row */
+  .action-row {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+
+  #delete-btn {
+    background: #3a1a1a;
+    border: 1px solid #664444;
+    color: #e08080;
+    padding: 8px 16px;
+    font-size: 0.95rem;
+  }
+  #delete-btn:disabled { opacity: 0.3; cursor: default; transform: none; }
+
+  #back-btn, #skip-btn {
+    background: #2a2a4a;
+    border: 1px solid #555;
+    color: #aaa;
+    font-size: 0.9rem;
+  }
+  #back-btn:disabled, #skip-btn:disabled { opacity: 0.3; cursor: default; transform: none; }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+
+  button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-family: inherit;
+    font-weight: bold;
+    transition: transform 0.1s, background 0.2s;
+  }
+  button:hover { transform: translateY(-2px); }
+  button:active { transform: translateY(0); }
+
+  #submit-btn {
+    background: #f0c040;
+    color: #111;
+  }
+  #submit-btn:disabled { background: #555; color: #888; cursor: default; transform: none; }
+
+  #hint-btn {
+    background: #2a2a4a;
+    border: 1px solid #555;
+    color: #aaa;
+    font-size: 0.9rem;
+  }
+  #hint-btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+  /* Feedback */
+  #feedback {
+    min-height: 28px;
+    text-align: center;
+    font-size: 1rem;
+    padding: 4px;
+    border-radius: 8px;
+    transition: all 0.3s;
+  }
+  #feedback.ok  { color: #40c070; }
+  #feedback.err { color: #e05050; }
+  #feedback.info{ color: #f0c040; }
+
+  #phrase-reveal {
+    min-height: 22px;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #888;
+    margin-top: 6px;
+    direction: rtl;
+  }
+
+  /* Hint text */
+  #hint-text {
+    min-height: 22px;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #a090ff;
+    margin-top: 8px;
+    font-style: italic;
+  }
+
+  /* Mistakes indicator */
+  .mistakes {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .heart { font-size: 1.1rem; transition: opacity 0.3s; }
+  .heart.gone { opacity: 0.2; }
+
+  /* Next button */
+  #next-btn {
+    display: none;
+    background: #4060e0;
+    color: #fff;
+    margin: 14px auto 0;
+    padding: 12px 36px;
+    font-size: 1.1rem;
+    border-radius: 12px;
+  }
+
+  /* Summary screen */
+  #summary-screen {
+    display: none;
+    text-align: center;
+  }
+  #summary-screen h2 { font-size: 2rem; color: #f0c040; margin-bottom: 16px; }
+  .final-score { font-size: 3.5rem; color: #f0c040; font-weight: bold; margin: 16px 0; }
+  .summary-detail { color: #aaa; font-size: 1rem; margin-bottom: 24px; }
+  #restart-btn { background: #f0c040; color: #111; font-size: 1.2rem; padding: 14px 40px; border-radius: 14px; }
+
+  /* Correct animation */
+  @keyframes pop {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+  .pop { animation: pop 0.35s ease; }
+</style>
+</head>
+<body>
+
+<h1>🌉 גשר מילים</h1>
+<p class="subtitle">מצא את המילה שמחברת בין השתיים</p>
+
+<!-- Game Screen -->
+<div id="game-screen">
+  <div class="top-bar">
+    <span>שאלה <span id="q-num">1</span> מתוך 10</span>
+    <span>ניקוד: <span class="score-val" id="score-display">0</span></span>
+  </div>
+
+  <div class="puzzle-box">
+    <div class="words-row">
+      <div class="word-chip" id="word-left"></div>
+      <span class="connector">+</span>
+      <div class="letter-boxes" id="letter-boxes"></div>
+      <span class="connector">+</span>
+      <div class="word-chip" id="word-right"></div>
+    </div>
+
+    <div class="letter-grid" id="letter-grid"></div>
+
+    <div class="action-row">
+      <button id="delete-btn">⌫ מחק</button>
+      <button id="submit-btn">שלח ✓</button>
+    </div>
+
+    <div id="hint-text"></div>
+    <div id="feedback"></div>
+    <div id="phrase-reveal"></div>
+
+    <div class="mistakes">
+      <span class="heart" id="h1">❤️</span>
+      <span class="heart" id="h2">❤️</span>
+      <span class="heart" id="h3">❤️</span>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+    <button id="back-btn">⏮ חזור</button>
+    <button id="hint-btn">💡 רמז (−20 נק')</button>
+    <button id="skip-btn">דלג ⏭</button>
+  </div>
+
+  <button id="next-btn">הבא ←</button>
+</div>
+
+<!-- Summary Screen -->
+<div id="summary-screen">
+  <h2>🎉 סיום המשחק!</h2>
+  <div class="final-score" id="final-score">0</div>
+  <div class="summary-detail" id="summary-detail"></div>
+  <button id="restart-btn">שחק שוב</button>
+</div>
+
+<script>
+// ─── PUZZLE DATA ────────────────────────────────────────────────────
+const ALL_PUZZLES = [
+  { left: "גור",      right: "הים",        bridge: "אריות",     hint: "חיה מלכותית; גרסת הים שלה חיה בצפון" },
+  { left: "כוכב",     right: "המלח",       bridge: "ים",        hint: "גוף מים ענק; הכי מלוח בעולם" },
+  { left: "חמור",     right: "מדרגות",     bridge: "גרם",       hint: "עלייה מדורגת בין קומות" },
+  { left: "זאב",      right: "במערכה",     bridge: "בודד",      hint: "לבד, ללא חברה; גם ז'אנר קולנועי" },
+  { left: "דג",       right: "פיפיות",     bridge: "חרב",       hint: "נשק עם להב; גם דג ים בעל מקור חד" },
+  { left: "עין",      right: "מלוח",       bridge: "דג",        hint: "יצור מים; טעם הים" },
+  { left: "שביל",     right: "אם",         bridge: "חלב",       hint: "שתייה לבנה; אמהות מייצרות אותו" },
+  { left: "עשב",      right: "הכפר",       bridge: "שוטה",      hint: "צמח פרא; איש פשוט מהכפר" },
+  { left: "כנפי",     right: "פרצים",      bridge: "רוח",       hint: "אוויר בתנועה; פורץ דרכו" },
+  { left: "יער",      right: "שוטף",       bridge: "גשם",       hint: "מים מהשמיים; שוטפים הכל" },
+  { left: "מזל",      right: "הבר",        bridge: "שור",       hint: "בהמה חזקה; מזל בגלגל המזלות" },
+  { left: "ציפור",    right: "חיה",        bridge: "נפש",       hint: "הרוח הפנימית; בריאה ופעילה" },
+  { left: "מברשת",    right: "פנים",       bridge: "שיער",      hint: "מה שגדל על הראש; גם על הפנים" },
+  { left: "מפתח",     right: "זהב",        bridge: "לב",        hint: "איבר מרכזי; לב של זהב" },
+  { left: "תיבת",     right: "ציבורית",    bridge: "תהודה",     hint: "הד קולי; מקום ציבורי בעל השפעה" },
+  { left: "שלט",      right: "מהעין",      bridge: "רחוק",      hint: "מרחק; מה שלא רואים" },
+  { left: "מתלה",     right: "חכמה",       bridge: "טלוויזיה",  hint: "מסך גדול בסלון; תלוי על הקיר" },
+  { left: "שקית",     right: "נצמד",       bridge: "ניילון",    hint: "חומר פלסטי; נצמד לכל דבר" },
+  { left: "פנס",      right: "עמוק",       bridge: "כיס",       hint: "תא בבגד; עמוק ומסתורי" },
+  { left: "תנור",     right: "גולמי",      bridge: "נפט",       hint: "חומר דלק; לפני עיבוד" },
+  { left: "דף",       right: "נפש",        bridge: "חשבון",     hint: "ספירה ובחינה עצמית" },
+  { left: "חדר",      right: "לילית",      bridge: "רחצה",      hint: "מקום להתרחץ; גם נסיכה אפלה" },
+  { left: "עוגת",     right: "דין",        bridge: "גזר",       hint: "ירק כתום; גזר הדין בבית משפט" },
+  { left: "קפה",      right: "טובעני",     bridge: "בוץ",       hint: "אדמה רטובה; קפה עב ועכור" },
+  { left: "ביצה",     right: "יום",        bridge: "קשה",       hint: "לא רך; יום מאתגר" },
+  { left: "שוקולד",   right: "אם",         bridge: "חלב",       hint: "שתייה לבנה; שוקולד עם חלב" },
+  { left: "מיץ",      right: "מכני",       bridge: "תפוז",      hint: "פרי כתום; מסחט תפוזים" },
+  { left: "יין",      right: "לבנה",       bridge: "קידוש",     hint: "ברכה על היין; הלבנה בשבת" },
+  { left: "מלח",      right: "כתיבה",      bridge: "שולחן",     hint: "ריהוט; מלח על השולחן" },
+  { left: "סוכר",     right: "כבד",        bridge: "חום",       hint: "צבע חמים; סוכר חום" },
+  { left: "מנהרת",    right: "פציעות",     bridge: "זמן",       hint: "ממד רביעי; פציעות לאורך זמן" },
+  { left: "שיקול",    right: "הקהל",       bridge: "דעת",       hint: "מה שחושבים; מה הציבור חושב" },
+  { left: "מס",       right: "יבשות",      bridge: "שפתיים",    hint: "שפתיים סגורות; יבשות בצמא" },
+  { left: "משמרת",    right: "לבן",        bridge: "לילה",      hint: "שעות החושך; צבע טהור" },
+  { left: "סוף",      right: "סוף",        bridge: "דבר",       hint: "מה שאומרים בסיום נאום" },
+  { left: "יום",      right: "וחשבון",     bridge: "הדין",      hint: "יום השיפוט הגדול" },
+  { left: "קפיצת",    right: "המלך",       bridge: "דרך",       hint: "קיצור דרך; דרך השלטון" },
+  { left: "שער",      right: "מוחץ",       bridge: "ניצחון",    hint: "זכייה גדולה; שער של ניצחון" },
+  { left: "פקק",      right: "ערה",        bridge: "תנועה",     hint: "עומס בכביש; עיר ערה" },
+  { left: "מסך",      right: "כבד",        bridge: "עשן",       hint: "עשן להסתרה; כבד ועבה" },
+  { left: "חליפת",    right: "ריק",        bridge: "חלל",       hint: "מרחב אינסופי; בגד לחלל" },
+  { left: "חצי",      right: "תנועה",      bridge: "אי",        hint: "יבשה קטנה; חצי אי" },
+  { left: "שביל",     right: "טהור",       bridge: "זהב",       hint: "מתכת יקרה; שביל מוזהב" },
+  { left: "פצע",      right: "לרווחה",     bridge: "פתוח",      hint: "לא סגור; פצוע ופתוח" },
+  { left: "מגן",      right: "המלך",       bridge: "דוד",       hint: "מלך ישראל; מגן דוד" },
+  { left: "כסא",      right: "לבריות",     bridge: "נוח",       hint: "נעים וסבבה; כסא נוח" },
+  { left: "שיעור",    right: "שנייה",      bridge: "קומה",      hint: "רמה גבוהה; קומה שנייה" },
+  { left: "קיר",      right: "יצוק",       bridge: "ברזל",      hint: "מתכת חזקה; קיר מברזל" },
+  { left: "פתרון",    right: "שחור",       bridge: "קסם",       hint: "מאגיה; קסם שחור" },
+  { left: "סיר",      right: "דם",         bridge: "לחץ",       hint: "לחץ גבוה; לחץ דם" },
+  { left: "ארון",     right: "סטטי",       bridge: "חשמל",      hint: "אנרגיה; חשמל סטטי" },
+  { left: "חתול",     right: "הולנדי",     bridge: "רחוב",      hint: "חיה רחוב; הולנדי" },
+  { left: "דג",       right: "טהור",       bridge: "זהב",       hint: "מתכת יקרה; דג זהב בבריכה" },
+  { left: "פרפר",     right: "לבן",        bridge: "לילה",      hint: "שעות החושך; פרפר לילה" },
+  { left: "אריה",     right: "תיכוני",     bridge: "ים",        hint: "ים בין ארצות; אריה ים" },
+  { left: "פח",       right: "עופות",      bridge: "זבל",       hint: "מקום לאשפה; ציפורי זבל" },
+  { left: "נר",       right: "יתרה",       bridge: "נשמה",      hint: "הרוח בגוף; נשמה יתרה בשבת" },
+  { left: "זבוב",     right: "מועד",       bridge: "חול",       hint: "ימי ביניים בחג; חול המועד" },
+  { left: "מסיבת",    right: "זרים",       bridge: "עיתונאים",  hint: "אנשי תקשורת; עיתונאים מחו\"ל" },
+  { left: "מס",       right: "נמוכה",      bridge: "הכנסה",     hint: "משכורת; הכנסה נמוכה" },
+  { left: "שירות",    right: "שדה",        bridge: "ביטחון",    hint: "אבטחה; שירות ביטחון" },
+  { left: "גשר",      right: "העורף",      bridge: "פיקוד",     hint: "מבנה מעל מים; פיקוד אחורי" },
+  { left: "אצבע",     right: "מריר",       bridge: "שוקולד",    hint: "ממתק; שוקולד מריר" },
+  { left: "חור",      right: "משחור",      bridge: "שחור",      hint: "צבע כהה; כהה מאוד" },
+  { left: "לב",       right: "נגף",        bridge: "אבן",       hint: "חומר קשה; אבן נגף" },
+  { left: "שיני",     right: "מלאכותית",   bridge: "בינה",      hint: "שכל מחשב; שיני בינה" },
+  { left: "שער",      right: "יצוק",       bridge: "ברזל",      hint: "מתכת חזקה; שער ברזל" },
+  { left: "מלחמת",    right: "נפשית",      bridge: "התשה",      hint: "שחיקה; מלחמת התשה" },
+  { left: "שיר",      right: "דווי",       bridge: "ערש",       hint: "עריסה; שיר ערש לתינוק" },
+  { left: "מסיבת",    right: "כספים",      bridge: "גיוס",      hint: "איסוף; גיוס כספים" },
+  { left: "כלי",      right: "שדה",        bridge: "מטבח",      hint: "ציוד לבישול; מטבח בשדה" },
+  { left: "נעל",      right: "אכילס",      bridge: "עקב",       hint: "חלק אחורי של הרגל; עקב אכילס" },
+  { left: "שק",       right: "יבשות",      bridge: "חבטות",     hint: "אימון אגרוף; יבשות" },
+  { left: "מגדל",     right: "אישית",      bridge: "שמירה",     hint: "שמירה; מגדל שמירה" },
+  { left: "חוט",      right: "מלובן",      bridge: "ברזל",      hint: "מתכת לוהטת; חוט ברזל" },
+  { left: "בשר",      right: "כבדים",      bridge: "תותחים",    hint: "נשק גדול; תותחים כבדים" },
+  { left: "עבודת",    right: "שנייה",      bridge: "יד",        hint: "מוחזר; עבודת יד" },
+  { left: "מפת",      right: "עקלקלות",    bridge: "דרכים",     hint: "ניווט; דרכים עקלקלות" },
+  { left: "שדה",      right: "מגע",        bridge: "קרב",       hint: "לחימה; קרב מגע" },
+  { left: "אור",      right: "הולדת",      bridge: "יום",       hint: "יום מיוחד; אור ביום ההולדת" },
+  { left: "איש",      right: "העם",        bridge: "צבא",       hint: "כוח מגן; צבא העם" },
+  { left: "איש",      right: "עליכם",      bridge: "שלום",      hint: "ברכה; שלום עליכם" },
+  { left: "בית",      right: "שדה",        bridge: "משפט",      hint: "בירור חוקי; בית משפט" },
+  { left: "גאוות",    right: "מובחרת",     bridge: "יחידה",     hint: "כוח מיוחד; יחידה מובחרת" },
+  { left: "דם",       right: "עמוק",       bridge: "כחול",      hint: "צבע הים; דם כחול של אצולה" },
+  { left: "חופש",     right: "עצמי",       bridge: "ביטוי",     hint: "לדבר חופשי; ביטוי עצמי" },
+  { left: "חוק",      right: "המעלה",      bridge: "יסוד",      hint: "חוק בסיסי; יסוד המעלה" },
+  { left: "חשבון",    right: "ישראל",      bridge: "בנק",       hint: "מוסד פיננסי; בנק ישראל" },
+  { left: "טבעת",     right: "אזרחיים",    bridge: "נישואין",   hint: "זוגיות; נישואין אזרחיים" },
+  { left: "ים",       right: "דבר",        bridge: "סוף",       hint: "סיום; סוף דבר" },
+  { left: "כדור",     right: "עץ",         bridge: "רגל",       hint: "ספורט; שולחן פינג פונג" },
+  { left: "כושר",     right: "עצמי",       bridge: "ביטוי",     hint: "לדבר; כושר ביטוי" },
+  { left: "כלב",      right: "סוף",        bridge: "ים",        hint: "גוף מים; כלב ים" },
+  { left: "כניסת",    right: "שלום",       bridge: "שבת",       hint: "יום מנוחה; שבת שלום" },
+  { left: "כרטיס",    right: "חולים",      bridge: "ביקור",     hint: "ביקור; כרטיס ביקור" },
+  { left: "לחם",      right: "טבע",        bridge: "חוק",       hint: "כלל; חוק הטבע" },
+  { left: "לחם",      right: "זרה",        bridge: "עבודה",     hint: "עבודה זרה; לחם עבודה" },
+  { left: "מזג",      right: "צח",         bridge: "אוויר",     hint: "טרי ונקי; אוויר צח" },
+  { left: "מכונת",    right: "אמת",        bridge: "זמן",       hint: "ממד רביעי; מכונת זמן" },
+  { left: "מכונת",    right: "מלוכלכת",    bridge: "כביסה",     hint: "בגדים לכביסה; כביסה מלוכלכת" },
+  { left: "מלח",      right: "המובטחת",    bridge: "הארץ",      hint: "ארץ ישראל; מלח הארץ" },
+  { left: "מעלה",     right: "רחב",        bridge: "חיוך",      hint: "ביטוי שמחה; חיוך רחב" },
+  { left: "מפת",      right: "ערוך",       bridge: "שולחן",     hint: "ריהוט; שולחן ערוך" },
+  { left: "משחק",     right: "סל",         bridge: "כדור",      hint: "ספורט; כדור סל" },
+  { left: "משקפי",    right: "נצחית",      bridge: "שמש",       hint: "כוכב; שמש נצחית" },
+  { left: "נעלי",     right: "ספר",        bridge: "בית",       hint: "לימוד; נעלי בית" },
+  { left: "נר",       right: "קודש",       bridge: "שבת",       hint: "יום קדוש; נר שבת" },
+  { left: "עבודת",    right: "הקודשים",    bridge: "קודש",      hint: "מקום קדוש; עבודת קודש" },
+  { left: "עוגת",     right: "צהובה",      bridge: "גבינה",     hint: "מוצר חלב; גבינה צהובה" },
+  { left: "עולם",     right: "בתור",       bridge: "הבא",       hint: "העתיד; הבא בתור" },
+  { left: "עלי",      right: "טהור",       bridge: "זהב",       hint: "מתכת יקרה; עלי זהב" },
+  { left: "עץ",       right: "בטן",        bridge: "פרי",       hint: "גדל על העץ; פרי בטן" },
+  { left: "פחד",      right: "קליני",      bridge: "מוות",      hint: "סיום; מוות קליני" },
+  { left: "פס",       right: "דממה",       bridge: "קול",       hint: "שקט; דממה" },
+  { left: "צבע",      right: "תינוקות",    bridge: "שמן",       hint: "שמן לתינוקות; צבע שמן" },
+  { left: "קרן",      right: "יום",        bridge: "אור",       hint: "אור; קרן אור" },
+  { left: "רכב",      right: "קדישא",      bridge: "חברה",      hint: "ארגון; חברה קדישא" },
+  { left: "שלום",     right: "ספר",        bridge: "בית",       hint: "מקום לימוד; שלום בית" },
+  { left: "שלום",     right: "לנער",       bridge: "חנוך",      hint: "חינוך; חנוך לנער" },
+  { left: "שעון",     right: "שנייה",      bridge: "יד",        hint: "ישן; שעון יד" },
+  { left: "שפת",      right: "המושבות",    bridge: "אם",        hint: "שפה ראשונה; אם המושבות" },
+  { left: "שק",       right: "ברזל",       bridge: "אגרוף",     hint: "מכה; אגרוף ברזל" },
+  { left: "שק",       right: "שליש",       bridge: "דמעות",     hint: "בכי; דמעות" },
+  { left: "שק",       right: "עמוקה",      bridge: "שינה",      hint: "מנוחה; שינה עמוקה" },
+  { left: "שק",       right: "אדמה",       bridge: "תפוחי",     hint: "ירק; תפוחי אדמה" },
+  { left: "תפוח",     right: "פוריה",      bridge: "אדמה",      hint: "קרקע; אדמה פוריה" },
+  { left: "פסק",      right: "יקר",        bridge: "זמן",       hint: "הפסקה; זמן יקר" },
+  { left: "פת",       right: "צר",         bridge: "לחם",       hint: "מזון בסיסי; לחם צר" },
+  { left: "עקומת",    right: "מרחוק",      bridge: "למידה",     hint: "ללמוד; למידה מרחוק" },
+  { left: "איש",      right: "עין",        bridge: "קשר",       hint: "תקשורת; קשר עין" },
+  { left: "חוט",      right: "מרכזית",     bridge: "שדרה",      hint: "ציר מרכזי; שדרה מרכזית" },
+  { left: "תשומת",    right: "שבור",       bridge: "לב",        hint: "ריכוז; לב שבור" },
+  { left: "ראש",      right: "חמה",        bridge: "פינה",      hint: "זווית; פינה חמה" },
+  { left: "מכונת",    right: "יוצרת",      bridge: "כתיבה",     hint: "כלי כתיבה; כתיבה יוצרת" },
+  { left: "שדה",      right: "אזרחית",     bridge: "תעופה",     hint: "תעשייה; תעופה אזרחית" },
+  { left: "תעודת",    right: "בדויה",      bridge: "זהות",      hint: "מסמך; זהות בדויה" },
+  { left: "חופשת",    right: "נפשית",      bridge: "מחלה",      hint: "בריאות; מחלה נפשית" },
+  { left: "מכת",      right: "יהודית",     bridge: "מדינה",     hint: "מדינת ישראל; מכת מדינה" },
+  { left: "לוח",      right: "עצמית",      bridge: "מודעות",    hint: "ידיעה פנימית; מודעות עצמית" },
+  { left: "ציפור",    right: "השירים",     bridge: "שיר",       hint: "מנגינה; שיר השירים" },
+  { left: "עין",      right: "במיעוטו",    bridge: "הרע",       hint: "קנאה; עין הרע" },
+  { left: "שעון",     right: "ים",         bridge: "חול",       hint: "שפת הים; שעון חול" },
+  { left: "ראש",      right: "צרה",        bridge: "ממשלה",     hint: "מנהיג; ממשלה בצרה" },
+  { left: "סל",       right: "מרוכזות",    bridge: "קניות",     hint: "רכישה; קניות מרוכזות" },
+  { left: "מס",       right: "חכמה",       bridge: "רכישה",     hint: "קנייה; רכישה חכמה" },
+  { left: "שווי",     right: "שחור",       bridge: "שוק",       hint: "מסחר; שוק שחור" },
+  { left: "מטבע",     right: "לארץ",       bridge: "חוץ",       hint: "מטבע זר; חוץ לארץ" },
+  { left: "נכס",      right: "פרי",        bridge: "מניב",      hint: "מניב פירות; נכס מניב" },
+  { left: "מגרש",     right: "כפולה",      bridge: "חנייה",     hint: "מקום לחנות; חנייה כפולה" },
+  { left: "בניין",    right: "משותפים",    bridge: "מגורים",    hint: "דירות; מגורים משותפים" },
+  { left: "יחידת",    right: "מוגן",       bridge: "דיור",      hint: "דיור; דיור מוגן" },
+  { left: "קרן",      right: "תקציבית",    bridge: "פנסיה",     hint: "חיסכון לפנסיה; פנסיה תקציבית" },
+  { left: "החזר",     right: "הכנסה",      bridge: "מס",        hint: "החזר מהמדינה; מס הכנסה" },
+  { left: "צ'ק",      right: "פנים",       bridge: "ביטחון",    hint: "מסמך; ביטחון פנים" },
+  { left: "דעת",      right: "שבוי",       bridge: "קהל",       hint: "ציבור; קהל שבוי" },
+  { left: "ראש",      right: "מקלט",       bridge: "עיר",       hint: "מנהיג עירוני; עיר מקלט" },
+  { left: "ארון",     right: "תחתונים",    bridge: "בגדים",     hint: "ריהוט; בגדים תחתונים" },
+  { left: "שולחן",    right: "חינם",       bridge: "אוכל",      hint: "מזון; אוכל חינם" },
+  { left: "שריר",     right: "זהים",       bridge: "תאומים",    hint: "דומים; תאומים זהים" },
+  { left: "חדר",      right: "נעות",       bridge: "מדרגות",    hint: "מדרגות נעות; חדר מדרגות" },
+  { left: "כפיפות",   right: "מלאה",       bridge: "בטן",       hint: "תנועה; בטן מלאה" },
+  { left: "דופק",     right: "אבן",        bridge: "לב",        hint: "פועם; לב אבן" },
+  { left: "יום",      right: "בחירה",      bridge: "חופש",      hint: "לבחור; חופש בחירה" },
+  { left: "דמי",      right: "סמויה",      bridge: "אבטלה",     hint: "ללא עבודה; אבטלה סמויה" },
+  { left: "לשכת",     right: "בעיניים",    bridge: "עבודה",     hint: "מציאת עבודה; עבודה בעיניים" },
+  { left: "רופא",     right: "טוחנות",     bridge: "שיניים",    hint: "מטפל בשיניים; שיניים טוחנות" },
+  { left: "דלקת",     right: "קשובות",     bridge: "אוזניים",   hint: "שמיעה; אוזניים קשובות" },
+  { left: "סריקת",    right: "יחסים",      bridge: "מערכות",    hint: "מכלול; מערכות יחסים" },
+];
+
+// ─── GAME STATE ───────────────────────────────────────────────────
+const ROUND_COUNT  = 10;
+const POINTS_CORRECT = 100;
+const POINTS_HINT    = -20;
+const POINTS_WRONG   = -10;
+const HEBREW_LETTERS = 'אבגדהוזחטיכלמנסעפצקרשת'.split('');
+
+let puzzles = [];
+let current  = 0;
+let score    = 0;
+let mistakes = 0;
+let hintUsed = false;
+let answered = false;
+let correctAnswers = 0;
+let builtWord = '';
+let scoreHistory = []; // score before each question, for restoring on go-back
+
+// ─── DOM ──────────────────────────────────────────────────────────
+const gameScreen    = document.getElementById('game-screen');
+const summaryScreen = document.getElementById('summary-screen');
+const qNum          = document.getElementById('q-num');
+const scoreDisplay  = document.getElementById('score-display');
+const wordLeft      = document.getElementById('word-left');
+const wordRight     = document.getElementById('word-right');
+const letterBoxes   = document.getElementById('letter-boxes');
+const letterGrid    = document.getElementById('letter-grid');
+const submitBtn     = document.getElementById('submit-btn');
+const deleteBtn     = document.getElementById('delete-btn');
+const hintBtn       = document.getElementById('hint-btn');
+const backBtn       = document.getElementById('back-btn');
+const skipBtn       = document.getElementById('skip-btn');
+const hintText      = document.getElementById('hint-text');
+const feedback      = document.getElementById('feedback');
+const phraseReveal  = document.getElementById('phrase-reveal');
+const nextBtn       = document.getElementById('next-btn');
+const hearts        = [document.getElementById('h1'), document.getElementById('h2'), document.getElementById('h3')];
+const finalScore    = document.getElementById('final-score');
+const summaryDetail = document.getElementById('summary-detail');
+const restartBtn    = document.getElementById('restart-btn');
+
+// ─── HELPERS ─────────────────────────────────────────────────────
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function normalize(s) {
+  return s.trim().replace(/[ְִֵֶַָּׁׂ]/g, ''); // strip niqqud
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────
+function initGame() {
+  puzzles = shuffle(ALL_PUZZLES).slice(0, ROUND_COUNT);
+  current = 0;
+  score   = 0;
+  correctAnswers = 0;
+  scoreHistory = [];
+  summaryScreen.style.display = 'none';
+  gameScreen.style.display    = 'block';
+  showQuestion();
+}
+
+// ─── LETTER GENERATION ────────────────────────────────────────────
+function buildLetters(bridge) {
+  const pool = [...bridge.split('')];
+  const usedExtras = new Set();
+  while (pool.length < 14) {
+    const r = HEBREW_LETTERS[Math.floor(Math.random() * HEBREW_LETTERS.length)];
+    if (!usedExtras.has(r) || pool.length > 10) {
+      pool.push(r);
+      usedExtras.add(r);
+    }
+  }
+  return shuffle(pool);
+}
+
+function renderLetters(letters) {
+  letterGrid.innerHTML = '';
+  letters.forEach(letter => {
+    const btn = document.createElement('button');
+    btn.className = 'letter-btn';
+    btn.textContent = letter;
+    btn.addEventListener('click', () => clickLetter(btn, letter));
+    letterGrid.appendChild(btn);
+  });
+}
+
+function renderBoxes(length) {
+  letterBoxes.innerHTML = '';
+  for (let i = 0; i < length; i++) {
+    const box = document.createElement('div');
+    box.className = 'letter-box';
+    box.dataset.pos = i;
+    letterBoxes.appendChild(box);
+  }
+}
+
+function fillNextBox(letter) {
+  // boxes are flex-direction: row-reverse, so DOM order 0 = rightmost visually
+  // we fill by builtWord.length-1 index
+  const boxes = letterBoxes.querySelectorAll('.letter-box');
+  const idx = builtWord.length - 1; // just added
+  if (boxes[idx]) {
+    boxes[idx].textContent = letter;
+    boxes[idx].classList.add('filled');
+  }
+}
+
+function clearLastBox() {
+  const boxes = letterBoxes.querySelectorAll('.letter-box');
+  const idx = builtWord.length; // after slice, length is already reduced
+  if (boxes[idx]) {
+    boxes[idx].textContent = '';
+    boxes[idx].classList.remove('filled');
+  }
+}
+
+function clickLetter(btn, letter) {
+  if (answered || btn.disabled) return;
+  const bridge = puzzles[current].bridge;
+  if (builtWord.length >= bridge.length) return; // boxes full
+  btn.disabled = true;
+  builtWord += letter;
+  fillNextBox(letter);
+}
+
+// ─── QUESTION ─────────────────────────────────────────────────────
+function showQuestion() {
+  const p = puzzles[current];
+  mistakes  = 0;
+  hintUsed  = false;
+  answered  = false;
+  builtWord = '';
+
+  qNum.textContent         = current + 1;
+  scoreDisplay.textContent = score;
+  wordLeft.textContent     = p.left;
+  wordRight.textContent    = p.right;
+  submitBtn.disabled       = false;
+  deleteBtn.disabled       = false;
+  hintBtn.disabled         = false;
+  hintText.textContent     = '';
+  feedback.textContent     = '';
+  feedback.className       = '';
+  phraseReveal.textContent = '';
+  nextBtn.style.display    = 'none';
+
+  scoreHistory[current] = score; // save score before this question
+  backBtn.disabled = (current === 0);
+  skipBtn.disabled = false;
+
+  hearts.forEach(h => h.classList.remove('gone'));
+  renderBoxes(p.bridge.length);
+  renderLetters(buildLetters(p.bridge));
+}
+
+// ─── DELETE ───────────────────────────────────────────────────────
+function deleteLetter() {
+  if (answered || !builtWord.length) return;
+  const removed = builtWord[builtWord.length - 1];
+  builtWord = builtWord.slice(0, -1);
+  clearLastBox();
+  // Re-enable the last disabled button with this letter
+  const btns = [...letterGrid.querySelectorAll('.letter-btn')];
+  const toEnable = btns.filter(b => b.disabled && b.textContent === removed);
+  if (toEnable.length) toEnable[toEnable.length - 1].disabled = false;
+}
+
+// ─── SUBMIT ───────────────────────────────────────────────────────
+function handleSubmit() {
+  if (answered) return;
+  const raw = builtWord.trim();
+  if (!raw) return;
+
+  const p = puzzles[current];
+  if (normalize(raw) === normalize(p.bridge)) {
+    correctGuess();
+  } else {
+    wrongGuess(raw);
+  }
+}
+
+function correctGuess() {
+  answered = true;
+  addScore(POINTS_CORRECT);
+  correctAnswers++;
+
+  letterBoxes.querySelectorAll('.letter-box').forEach(b => {
+    b.classList.remove('filled');
+    b.classList.add('correct');
+  });
+  letterBoxes.classList.add('pop');
+
+  const p = puzzles[current];
+  phraseReveal.textContent = `✅  ${p.left} ${p.bridge}  •  ${p.bridge} ${p.right}`;
+  setFeedback(`נכון! 🎉 +${POINTS_CORRECT}`, 'ok');
+
+  disableAll();
+  showNextBtn();
+}
+
+function wrongGuess(raw) {
+  mistakes++;
+  addScore(POINTS_WRONG);
+
+  if (mistakes < 3) {
+    hearts[3 - mistakes].classList.add('gone');
+    setFeedback(`"${raw}" — לא נכון. נסה שוב! (${POINTS_WRONG} נק')`, 'err');
+    // Reset built word, clear boxes, re-enable letter buttons
+    builtWord = '';
+    letterBoxes.querySelectorAll('.letter-box').forEach(b => {
+      b.textContent = '';
+      b.classList.remove('filled');
+    });
+    letterBoxes.classList.add('shake');
+    setTimeout(() => letterBoxes.classList.remove('shake'), 350);
+    [...letterGrid.querySelectorAll('.letter-btn')].forEach(b => b.disabled = false);
+  } else {
+    hearts[0].classList.add('gone');
+    revealAnswer();
+  }
+}
+
+function revealAnswer() {
+  answered = true;
+  disableAll();
+
+  const p = puzzles[current];
+  // Fill boxes with the correct answer letters
+  const boxes = letterBoxes.querySelectorAll('.letter-box');
+  [...p.bridge].forEach((letter, i) => {
+    if (boxes[i]) {
+      boxes[i].textContent = letter;
+      boxes[i].classList.remove('filled');
+      boxes[i].classList.add('revealed');
+    }
+  });
+  phraseReveal.textContent = `${p.left} ${p.bridge}  •  ${p.bridge} ${p.right}`;
+  setFeedback('😔 נגמרו הניסיונות. זו הייתה התשובה.', 'info');
+
+  showNextBtn();
+}
+
+function disableAll() {
+  submitBtn.disabled = true;
+  deleteBtn.disabled = true;
+  hintBtn.disabled   = true;
+  skipBtn.disabled   = true;
+  [...letterGrid.querySelectorAll('.letter-btn')].forEach(b => b.disabled = true);
+}
+
+// ─── SKIP ─────────────────────────────────────────────────────────
+function skipQuestion() {
+  if (answered) return;
+  answered = true;
+  disableAll();
+  const p = puzzles[current];
+  // reveal the answer without penalizing
+  const boxes = letterBoxes.querySelectorAll('.letter-box');
+  [...p.bridge].forEach((letter, i) => {
+    if (boxes[i]) {
+      boxes[i].textContent = letter;
+      boxes[i].classList.remove('filled');
+      boxes[i].classList.add('revealed');
+    }
+  });
+  phraseReveal.textContent = `${p.left} ${p.bridge}  •  ${p.bridge} ${p.right}`;
+  setFeedback('⏭ דולגה — זו הייתה התשובה.', 'info');
+  showNextBtn();
+}
+
+// ─── GO BACK ──────────────────────────────────────────────────────
+function goBack() {
+  if (current === 0) return;
+  current--;
+  // restore score to what it was before the previous question
+  score = scoreHistory[current];
+  scoreDisplay.textContent = score;
+  showQuestion();
+}
+
+// ─── HINT ─────────────────────────────────────────────────────────
+function useHint() {
+  if (hintUsed || answered) return;
+  hintUsed = true;
+  hintBtn.disabled = true;
+  addScore(POINTS_HINT);
+  hintText.textContent = '💡 ' + puzzles[current].hint;
+}
+
+// ─── NEXT ─────────────────────────────────────────────────────────
+function showNextBtn() {
+  nextBtn.style.display = 'block';
+  nextBtn.textContent   = current < ROUND_COUNT - 1 ? 'הבא ←' : 'סיום 🏁';
+}
+
+function goNext() {
+  current++;
+  if (current < ROUND_COUNT) showQuestion();
+  else showSummary();
+}
+
+// ─── SCORE ────────────────────────────────────────────────────────
+function addScore(delta) {
+  score = Math.max(0, score + delta);
+  scoreDisplay.textContent = score;
+}
+
+// ─── FEEDBACK ─────────────────────────────────────────────────────
+function setFeedback(msg, cls) {
+  feedback.textContent  = msg;
+  feedback.className    = cls;
+}
+
+// ─── SUMMARY ─────────────────────────────────────────────────────
+function showSummary() {
+  gameScreen.style.display    = 'none';
+  summaryScreen.style.display = 'block';
+  finalScore.textContent = score;
+
+  let rank;
+  if (score >= 750)      rank = '🏆 מוח מקשר! מושלם';
+  else if (score >= 500) rank = '🥈 מצוין! כמעט שם';
+  else if (score >= 250) rank = '🥉 לא רע! אפשר עוד';
+  else                   rank = '💪 אל תוותר — נסה שוב!';
+
+  summaryDetail.textContent = `ענית נכון על ${correctAnswers} מתוך ${ROUND_COUNT} שאלות — ${rank}`;
+}
+
+// ─── EVENTS ──────────────────────────────────────────────────────
+submitBtn.addEventListener('click', handleSubmit);
+deleteBtn.addEventListener('click', deleteLetter);
+hintBtn.addEventListener('click', useHint);
+backBtn.addEventListener('click', goBack);
+skipBtn.addEventListener('click', skipQuestion);
+nextBtn.addEventListener('click', goNext);
+restartBtn.addEventListener('click', initGame);
+
+// ─── START ────────────────────────────────────────────────────────
+initGame();
+</script>
+</body>
+</html>
