@@ -274,7 +274,7 @@
 <!-- Game Screen -->
 <div id="game-screen">
   <div class="top-bar">
-    <span>שאלה <span id="q-num">1</span> מתוך 10</span>
+    <span>שאלה <span id="q-num">1</span> מתוך <span id="q-total">0</span></span>
     <span>ניקוד: <span class="score-val" id="score-display">0</span></span>
   </div>
 
@@ -496,7 +496,7 @@ const ALL_PUZZLES = [
 ];
 
 // ─── GAME STATE ───────────────────────────────────────────────────
-const ROUND_COUNT  = 10;
+const ROUND_COUNT  = ALL_PUZZLES.length;
 const POINTS_CORRECT = 100;
 const POINTS_HINT    = -20;
 const POINTS_WRONG   = -10;
@@ -551,7 +551,8 @@ function normalize(s) {
 
 // ─── INIT ─────────────────────────────────────────────────────────
 function initGame() {
-  puzzles = shuffle(ALL_PUZZLES).slice(0, ROUND_COUNT);
+  puzzles = shuffle(ALL_PUZZLES);
+  document.getElementById('q-total').textContent = puzzles.length;
   current = 0;
   score   = 0;
   correctAnswers = 0;
